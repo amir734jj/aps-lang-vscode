@@ -2,7 +2,9 @@
     "name": "aps-lang",
     "displayName": "aps-lang",
     "description": "APS language support",
+    "publisher": "hesamian",
     "version": "0.0.1",
+    "repository": "https://github.com/amir734jj/aps-lang-vscode",
     "engines": {
         "vscode": "^1.38.0"
     },
