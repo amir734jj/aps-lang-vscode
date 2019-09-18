@@ -1,0 +1,25 @@
+{
+    "name": "aps-lang",
+    "displayName": "aps-lang",
+    "description": "APS language support",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.38.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "aps",
+            "aliases": ["aps", "aps"],
+            "extensions": [".aps"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "aps",
+            "scopeName": "",
+            "path": "./syntaxes/aps.tmLanguage.json"
+        }]
+    }
+}
