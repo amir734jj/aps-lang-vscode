@@ -12,16 +12,25 @@
         "Programming Languages"
     ],
     "contributes": {
-        "languages": [{
-            "id": "aps",
-            "aliases": ["aps", "aps"],
-            "extensions": [".aps"],
-            "configuration": "./language-configuration.json"
-        }],
-        "grammars": [{
-            "language": "aps",
-            "scopeName": "",
-            "path": "./syntaxes/aps.tmLanguage.json"
-        }]
+        "languages": [
+            {
+                "id": "aps",
+                "aliases": [
+                    "aps",
+                    "aps"
+                ],
+                "extensions": [
+                    ".aps"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "aps",
+                "scopeName": "",
+                "path": "./syntaxes/aps.tmLanguage.json"
+            }
+        ]
     }
 }
