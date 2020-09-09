@@ -13,7 +13,7 @@
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control.aps",
-				"match": "\\b(if|while|for|return|type|collection|type|module|extends|begin|end|result|attribute|pragma|phylum|case|match)\\b"
+				"match": "\\b(if|endif|else|elsif|while|for|return|type|type|module|extends|begin|end|result|attribute|pragma|phylum|case|match|private|procedure|remote|circular|class|collection|constructor|extends)\\b"
 			}]
 		},
 		"strings": {
