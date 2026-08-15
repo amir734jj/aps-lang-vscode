@@ -7,6 +7,7 @@ language. The extension works without modifying or embedding the APS repository.
 
 - TextMate highlighting based on the APS Flex lexer
 - Workspace-wide symbol indexing and completion
+- Type-directed attribute completion after `.` in top-level match bodies
 - Hover information and declaration signatures
 - Go to Definition and Find References
 - Document Outline and workspace symbol search
@@ -24,6 +25,12 @@ Syntax and locally decidable semantic diagnostics update while a document is edi
 Use **APS: Validate Current File** to additionally report unresolved type names. That
 command treats APS standard types and type/module declarations indexed from the open
 workspace as its environment.
+
+Inside a top-level `match`, typing `receiver.` opens an attribute list filtered by the
+receiver's phylum. The receiver type is resolved from explicit pattern annotations,
+constructor result and parameter types, or local variable annotations. Existing `:=`
+and `:>` statements also narrow suggestions by attribute direction and collection
+semantics.
 
 Because APS `with` directives use external search paths, unresolved names from modules
 outside the workspace are not reported as live errors. Add those APS files to the

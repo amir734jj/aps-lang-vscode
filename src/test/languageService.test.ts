@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { analyze, completionCandidates, lex, tokenAt } from '../languageService';
+import { analyze, completionCandidates, lex, memberCompletionCandidates, tokenAt } from '../languageService';
 import { parse } from '../parserService';
 import { semanticDiagnostics } from '../semanticService';
 
@@ -67,5 +67,69 @@ assert.ok(completions.some(candidate => candidate.kind === 'keyword' && candidat
 assert.ok(completions.some(candidate => candidate.kind === 'function' && candidate.name === 'lookup'));
 assert.ok(completions.some(candidate => candidate.kind === 'phylum' && candidate.name === 'Contour'));
 assert.strictEqual(completions.filter(candidate => candidate.kind === 'type' && candidate.name === 'Scope').length, 1);
+
+const memberFixture = `
+phylum Node;
+constructor node() : Node;
+constructor pair(left,right : Node) : Node;
+attribute Node.inherited_value : Integer;
+attribute Node.output : Integer;
+collection attribute Node.items : Integer;
+pragma inherited(inherited_value);
+pragma synthesized(output);
+match ?lhs:Node=node() begin
+    local : Node := lhs;
+    lhs.;
+    local.;
+end;
+match ?rhs=node() begin
+    rhs.;
+end;
+match ?root:Node=pair(?left,?child) begin
+	child.;
+end;
+`;
+const memberAnalysis = analyze(memberFixture);
+const memberNamesAt = (marker: string) => memberCompletionCandidates(
+	memberFixture,
+	memberFixture.indexOf(marker) + marker.length,
+	memberAnalysis,
+	[memberAnalysis]
+)?.map(candidate => candidate.name);
+assert.deepStrictEqual(memberNamesAt('lhs.'), ['inherited_value', 'items', 'output']);
+assert.deepStrictEqual(memberNamesAt('local.'), ['inherited_value', 'items', 'output']);
+assert.deepStrictEqual(memberNamesAt('rhs.'), ['inherited_value', 'items', 'output'],
+	'untyped pattern bindings should infer their type from the matched constructor');
+assert.deepStrictEqual(memberNamesAt('child.'), ['inherited_value', 'items', 'output'],
+	'nested pattern bindings should infer grouped constructor parameter types');
+
+const collectionFixture = memberFixture.replace('lhs.;', 'lhs. :> value;');
+const collectionAnalysis = analyze(collectionFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	collectionFixture,
+	collectionFixture.indexOf('lhs.') + 'lhs.'.length,
+	collectionAnalysis,
+	[collectionAnalysis]
+)?.map(candidate => candidate.name), ['items']);
+
+const directedFixture = memberFixture.replace('lhs.;', 'lhs. := value;');
+const directedAnalysis = analyze(directedFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	directedFixture,
+	directedFixture.indexOf('lhs.') + 'lhs.'.length,
+	directedAnalysis,
+	[directedAnalysis]
+)?.map(candidate => candidate.name), ['items', 'output'],
+	'writes to a match root should omit attributes declared inherited');
+
+const readFixture = memberFixture.replace('child.;', 'value := child.;');
+const readAnalysis = analyze(readFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	readFixture,
+	readFixture.indexOf('child.') + 'child.'.length,
+	readAnalysis,
+	[readAnalysis]
+)?.map(candidate => candidate.name), ['items', 'output'],
+	'reads from a match child should omit attributes declared inherited');
 
 console.log(`APS language service: ${result.tokens.length} tokens, ${result.symbols.length} symbols, all tests passed.`);

@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Analysis, analyze, ApsSymbol, ApsSymbolKind, completionCandidates, tokenAt } from './languageService';
+import { Analysis, analyze, ApsSymbol, ApsSymbolKind, completionCandidates, memberCompletionCandidates, tokenAt } from './languageService';
 import { SemanticOptions } from './semanticService';
 
 const selector: vscode.DocumentSelector = { language: 'aps', scheme: 'file' };
@@ -130,15 +130,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
         vscode.commands.registerCommand('aps.reindexWorkspace', reindexWorkspace),
         vscode.languages.registerCompletionItemProvider(selector, {
-            provideCompletionItems: () => {
-                return completionCandidates(analyses.values()).map(candidate => {
+            provideCompletionItems: (document, position) => {
+                const current = indexDocument(document);
+                const candidates = memberCompletionCandidates(document.getText(), document.offsetAt(position), current, analyses.values())
+                    ?? completionCandidates(analyses.values());
+                return candidates.map(candidate => {
                     const kind = candidate.kind === 'keyword' ? vscode.CompletionItemKind.Keyword : completionKind(candidate.kind);
                     const item = new vscode.CompletionItem(candidate.name, kind);
                     item.detail = candidate.detail;
                     return item;
                 });
             }
-        }),
+        }, '.'),
         vscode.languages.registerHoverProvider(selector, {
             provideHover: (document, position) => {
                 const current = indexDocument(document);

@@ -2,6 +2,14 @@
 
 All notable changes to the "aps-lang" extension will be documented in this file.
 
+## [0.1.2]
+
+- Added automatic attribute completion after `.` in top-level match bodies.
+- Added receiver type inference from explicit pattern types, constructor results,
+	nested constructor parameters, and typed local variables.
+- Filtered attribute suggestions by receiver phylum, collection assignment, and
+	inherited/synthesized direction when the statement context is unambiguous.
+
 ## [0.1.1]
 
 - Restored syntax highlighting by fixing the packaged TextMate grammar JSON.

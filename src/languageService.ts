@@ -50,7 +50,24 @@ export interface LocalDiagnostic {
 export interface Analysis {
     tokens: Token[];
     symbols: ApsSymbol[];
+    attributes: AttributeInfo[];
+    constructors: ConstructorInfo[];
     diagnostics: LocalDiagnostic[];
+}
+
+export interface AttributeInfo {
+    name: string;
+    receiverType: string;
+    resultType: string;
+    collection: boolean;
+    direction?: 'inherited' | 'synthesized';
+    detail: string;
+}
+
+export interface ConstructorInfo {
+    name: string;
+    parameterTypes: string[];
+    resultType: string;
 }
 
 const punctuation = new Set('[](){}:;.,?!'.split(''));
@@ -216,12 +233,83 @@ function collectSymbols(text: string, tokens: Token[]): ApsSymbol[] {
     return symbols;
 }
 
+function collectAttributeInfo(text: string, tokens: Token[]): AttributeInfo[] {
+    const attributes: AttributeInfo[] = [];
+    for (let index = 0; index < tokens.length; index++) {
+        if (tokens[index].text !== 'attribute') continue;
+        const receiver = tokens[index + 1];
+        const dot = tokens[index + 2];
+        const name = tokens[index + 3];
+        const colon = tokens[index + 4];
+        const resultType = tokens[index + 5];
+        if (receiver?.kind !== 'identifier' || dot?.text !== '.' || name?.kind !== 'identifier' ||
+            colon?.text !== ':' || resultType?.kind !== 'identifier') continue;
+        const declarationStart = tokens[index - 1]?.text === 'collection' ? tokens[index - 1].start : tokens[index].start;
+        const declarationStop = declarationEnd(text, name);
+        attributes.push({
+            name: name.text,
+            receiverType: receiver.text,
+            resultType: resultType.text,
+            collection: tokens[index - 1]?.text === 'collection',
+            detail: text.slice(declarationStart, declarationStop).replace(/\s+/g, ' ').trim()
+        });
+    }
+    for (let index = 0; index < tokens.length; index++) {
+        if (tokens[index].text !== 'pragma' || !['inherited', 'synthesized'].includes(tokens[index + 1]?.text) ||
+            tokens[index + 2]?.text !== '(') continue;
+        const direction = tokens[index + 1].text as 'inherited' | 'synthesized';
+        for (let cursor = index + 3; cursor < tokens.length && tokens[cursor].text !== ')'; cursor++) {
+            if (tokens[cursor].kind !== 'identifier') continue;
+            for (const attribute of attributes.filter(candidate => candidate.name === tokens[cursor].text)) {
+                attribute.direction = direction;
+            }
+        }
+    }
+    return attributes;
+}
+
+function collectConstructorInfo(tokens: Token[]): ConstructorInfo[] {
+    const constructors: ConstructorInfo[] = [];
+    for (let index = 0; index < tokens.length; index++) {
+        if (tokens[index].text !== 'constructor' || tokens[index + 1]?.kind !== 'identifier') continue;
+        const parameterTypes: string[] = [];
+        let depth = 0;
+        let parameterNames = 0;
+        for (let cursor = index + 2; cursor < tokens.length && tokens[cursor].text !== ';'; cursor++) {
+            if (tokens[cursor].text === '(') {
+                depth++;
+                continue;
+            }
+            if (tokens[cursor].text === ')') {
+                depth--;
+                continue;
+            }
+            if (depth === 1 && tokens[cursor].kind === 'identifier' && tokens[cursor - 1]?.text !== ':') {
+                parameterNames++;
+                continue;
+            }
+            if (depth === 1 && tokens[cursor].text === ':' && tokens[cursor + 1]?.kind === 'identifier') {
+                parameterTypes.push(...Array<string>(parameterNames).fill(tokens[cursor + 1].text));
+                parameterNames = 0;
+                cursor++;
+                continue;
+            }
+            if (tokens[cursor].text !== ':' || depth !== 0 || tokens[cursor + 1]?.kind !== 'identifier') continue;
+            constructors.push({ name: tokens[index + 1].text, parameterTypes, resultType: tokens[cursor + 1].text });
+            break;
+        }
+    }
+    return constructors;
+}
+
 export function analyze(text: string, semanticOptions: SemanticOptions = {}): Analysis {
     const lexical = lex(text);
     const parsed = parse(text);
     return {
         tokens: lexical.tokens,
         symbols: collectSymbols(text, lexical.tokens),
+        attributes: collectAttributeInfo(text, lexical.tokens),
+        constructors: collectConstructorInfo(lexical.tokens),
         diagnostics: [
             ...lexical.diagnostics,
             ...parsed.diagnostics,
@@ -252,4 +340,163 @@ export function completionCandidates(analyses: Iterable<Analysis>): CompletionCa
         }
     }
     return candidates;
+}
+
+interface MatchScope {
+    matchToken: number;
+    beginToken: number;
+}
+
+interface ReceiverInfo {
+    type: string;
+    role: 'root' | 'child' | 'local';
+}
+
+function enclosingMatch(tokens: Token[], offset: number): MatchScope | undefined {
+    const blocks: Array<MatchScope | undefined> = [];
+    let statementStart = 0;
+    for (let index = 0; index < tokens.length && tokens[index].start < offset; index++) {
+        const token = tokens[index];
+        if (token.kind === 'comment' || token.kind === 'string') continue;
+        if (token.text === 'begin') {
+            let matchToken: number | undefined;
+            for (let cursor = index - 1; cursor >= statementStart; cursor--) {
+                if (tokens[cursor].text === 'match') {
+                    matchToken = cursor;
+                    break;
+                }
+            }
+            blocks.push(matchToken === undefined ? undefined : { matchToken, beginToken: index });
+            statementStart = index + 1;
+        } else if (token.text === 'end') {
+            blocks.pop();
+            statementStart = index + 1;
+        } else if (token.text === ';') {
+            statementStart = index + 1;
+        }
+    }
+    return [...blocks].reverse().find((scope): scope is MatchScope => scope !== undefined);
+}
+
+function constructorSignatures(analyses: Iterable<Analysis>): Map<string, ConstructorInfo> {
+    const results = new Map<string, ConstructorInfo>();
+    for (const analysis of analyses) {
+        for (const constructor of analysis.constructors) results.set(constructor.name, constructor);
+    }
+    return results;
+}
+
+function matchingParen(tokens: Token[], open: number, limit: number): number | undefined {
+    let depth = 0;
+    for (let index = open; index < limit; index++) {
+        if (tokens[index].text === '(') depth++;
+        if (tokens[index].text === ')' && --depth === 0) return index;
+    }
+    return undefined;
+}
+
+function bindConstructorArguments(
+    tokens: Token[],
+    start: number,
+    limit: number,
+    constructors: Map<string, ConstructorInfo>,
+    bindings: Map<string, ReceiverInfo>
+): void {
+    for (let index = start; index < limit; index++) {
+        const signature = constructors.get(tokens[index].text);
+        if (!signature || tokens[index + 1]?.text !== '(') continue;
+        const close = matchingParen(tokens, index + 1, limit);
+        if (close === undefined) continue;
+        let argumentStart = index + 2;
+        let argumentIndex = 0;
+        let depth = 0;
+        for (let cursor = argumentStart; cursor <= close; cursor++) {
+            const separator = cursor === close || (depth === 0 && [',', ';'].includes(tokens[cursor].text));
+            if (separator) {
+                const expectedType = signature.parameterTypes[argumentIndex];
+                if (expectedType && tokens[argumentStart]?.text === '?' && tokens[argumentStart + 1]?.kind === 'identifier') {
+                    bindings.set(tokens[argumentStart + 1].text, { type: expectedType, role: 'child' });
+                }
+                bindConstructorArguments(tokens, argumentStart, cursor, constructors, bindings);
+                argumentStart = cursor + 1;
+                argumentIndex++;
+            } else if (tokens[cursor].text === '(') {
+                depth++;
+            } else if (tokens[cursor].text === ')') {
+                depth--;
+            }
+        }
+        index = close;
+    }
+}
+
+function matchBindings(analysis: Analysis, scope: MatchScope, analyses: Iterable<Analysis>): Map<string, ReceiverInfo> {
+    const bindings = new Map<string, ReceiverInfo>();
+    const constructors = constructorSignatures(analyses);
+    const tokens = analysis.tokens;
+    let firstBinding = true;
+    for (let index = scope.matchToken + 1; index < scope.beginToken; index++) {
+        if (tokens[index].text !== '?' || tokens[index + 1]?.kind !== 'identifier') continue;
+        const name = tokens[index + 1].text;
+        const role = firstBinding ? 'root' : 'child';
+        firstBinding = false;
+        if (tokens[index + 2]?.text === ':' && tokens[index + 3]?.kind === 'identifier') {
+            bindings.set(name, { type: tokens[index + 3].text, role });
+        } else if (tokens[index + 2]?.text === '=' && tokens[index + 3]?.kind === 'identifier') {
+            const signature = constructors.get(tokens[index + 3].text);
+            if (signature) bindings.set(name, { type: signature.resultType, role });
+        }
+    }
+    bindConstructorArguments(tokens, scope.matchToken + 1, scope.beginToken, constructors, bindings);
+    return bindings;
+}
+
+function receiverInfo(analysis: Analysis, receiver: string, offset: number, analyses: Iterable<Analysis>): ReceiverInfo | undefined {
+    const scope = enclosingMatch(analysis.tokens, offset);
+    if (!scope) return undefined;
+    const bindings = matchBindings(analysis, scope, analyses);
+    for (let index = scope.beginToken + 1; index < analysis.tokens.length && analysis.tokens[index].start < offset; index++) {
+        const name = analysis.tokens[index];
+        const colon = analysis.tokens[index + 1];
+        const type = analysis.tokens[index + 2];
+        if (name.kind === 'identifier' && colon?.text === ':' && type?.kind === 'identifier') {
+            bindings.set(name.text, { type: type.text, role: 'local' });
+        }
+    }
+    return bindings.get(receiver);
+}
+
+export function memberCompletionCandidates(
+    text: string,
+    offset: number,
+    current: Analysis,
+    analyses: Iterable<Analysis>
+): CompletionCandidate[] | undefined {
+    const memberAccess = /\b([A-Za-z][A-Za-z0-9_]*)\s*\.\s*[A-Za-z0-9_]*$/.exec(text.slice(0, offset));
+    if (!memberAccess) return undefined;
+    const allAnalyses = [...analyses];
+    if (!allAnalyses.includes(current)) allAnalyses.push(current);
+    const receiver = receiverInfo(current, memberAccess[1], offset, allAnalyses);
+    if (!receiver) return [];
+    const statementEnd = text.indexOf(';', offset);
+    const remainder = text.slice(offset, statementEnd === -1 ? text.length : statementEnd);
+    const collectionAssignment = remainder.includes(':>');
+    const memberStart = offset - memberAccess[0].length;
+    const statementStart = text.lastIndexOf(';', memberStart) + 1;
+    const assignmentBefore = /:>|:=/.test(text.slice(statementStart, memberStart));
+    const assignmentAfter = /:>|:=/.test(remainder);
+    const expectedDirection = (!assignmentBefore && !assignmentAfter) || receiver.role === 'local'
+        ? undefined
+        : assignmentAfter === (receiver.role === 'root') ? 'synthesized' : 'inherited';
+    const seen = new Set<string>();
+    const candidates: CompletionCandidate[] = [];
+    for (const analysis of allAnalyses) {
+        for (const attribute of analysis.attributes) {
+            if (attribute.receiverType !== receiver.type || (collectionAssignment && !attribute.collection) ||
+                (expectedDirection && attribute.direction && attribute.direction !== expectedDirection) || seen.has(attribute.name)) continue;
+            seen.add(attribute.name);
+            candidates.push({ name: attribute.name, kind: 'attribute', detail: attribute.detail });
+        }
+    }
+    return candidates.sort((left, right) => left.name.localeCompare(right.name));
 }
