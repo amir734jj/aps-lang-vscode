@@ -24,9 +24,24 @@ const grammarPath = path.resolve(extensionDirectory, grammarContribution.path);
 const grammar = JSON.parse(fs.readFileSync(grammarPath, 'utf8')) as {
     scopeName?: string;
     patterns?: unknown[];
+    repository?: Record<string, unknown>;
 };
 
 assert.strictEqual(grammar.scopeName, grammarContribution.scopeName);
 assert.ok(grammar.patterns && grammar.patterns.length > 0, 'the APS grammar must contain highlighting patterns');
+const grammarText = JSON.stringify(grammar.repository);
+for (const scope of [
+    'entity.name.namespace.aps',
+    'entity.name.type.class.aps',
+    'entity.name.type.interface.aps',
+    'entity.name.function.aps',
+    'entity.name.variable.field.aps',
+    'variable.parameter.aps',
+    'storage.modifier.aps',
+    'keyword.control.aps',
+    'punctuation.accessor.aps'
+]) {
+    assert.ok(grammarText.includes(scope), `the APS grammar must provide the ${scope} scope`);
+}
 
 console.log('APS extension highlighting assets verified.');

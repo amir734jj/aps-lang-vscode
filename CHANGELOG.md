@@ -4,11 +4,15 @@ All notable changes to the "aps-lang" extension will be documented in this file.
 
 ## [0.1.2]
 
-- Added automatic attribute completion after `.` in top-level match bodies.
+- Added attribute-only completion after `.` inside and outside top-level match bodies,
+	with all known attributes as a fallback when the receiver type is unresolved.
 - Added receiver type inference from explicit pattern types, constructor results,
 	nested constructor parameters, and typed local variables.
+- Added attribute completion for typed receivers declared before a top-level match.
 - Filtered attribute suggestions by receiver phylum, collection assignment, and
 	inherited/synthesized direction when the statement context is unambiguous.
+- Expanded syntax highlighting for declaration kinds, bindings, modifiers, control
+	flow, constants, and punctuation.
 
 ## [0.1.1]
 

@@ -453,17 +453,36 @@ function matchBindings(analysis: Analysis, scope: MatchScope, analyses: Iterable
 
 function receiverInfo(analysis: Analysis, receiver: string, offset: number, analyses: Iterable<Analysis>): ReceiverInfo | undefined {
     const scope = enclosingMatch(analysis.tokens, offset);
-    if (!scope) return undefined;
-    const bindings = matchBindings(analysis, scope, analyses);
-    for (let index = scope.beginToken + 1; index < analysis.tokens.length && analysis.tokens[index].start < offset; index++) {
-        const name = analysis.tokens[index];
-        const colon = analysis.tokens[index + 1];
-        const type = analysis.tokens[index + 2];
-        if (name.kind === 'identifier' && colon?.text === ':' && type?.kind === 'identifier') {
-            bindings.set(name.text, { type: type.text, role: 'local' });
+    if (scope) {
+        const bindings = matchBindings(analysis, scope, analyses);
+        for (let index = scope.beginToken + 1; index < analysis.tokens.length && analysis.tokens[index].start < offset; index++) {
+            const name = analysis.tokens[index];
+            const colon = analysis.tokens[index + 1];
+            const type = analysis.tokens[index + 2];
+            if (name.kind === 'identifier' && colon?.text === ':' && type?.kind === 'identifier') {
+                bindings.set(name.text, { type: type.text, role: 'local' });
+            }
+        }
+        const binding = bindings.get(receiver);
+        if (binding) return binding;
+    }
+
+    const declarationLimit = scope ? analysis.tokens[scope.matchToken].start : offset;
+    let outerDeclaration: ApsSymbol | undefined;
+    for (let index = analysis.symbols.length - 1; index >= 0; index--) {
+        const symbol = analysis.symbols[index];
+        if (symbol.kind === 'variable' && symbol.name === receiver && symbol.start < declarationLimit) {
+            outerDeclaration = symbol;
+            break;
         }
     }
-    return bindings.get(receiver);
+    if (!outerDeclaration) return undefined;
+    const declarationToken = analysis.tokens.findIndex(token => token.start === outerDeclaration.start);
+    const colon = analysis.tokens[declarationToken + 1];
+    const type = analysis.tokens[declarationToken + 2];
+    return colon?.text === ':' && type?.kind === 'identifier'
+        ? { type: type.text, role: 'local' }
+        : undefined;
 }
 
 export function memberCompletionCandidates(
@@ -477,7 +496,6 @@ export function memberCompletionCandidates(
     const allAnalyses = [...analyses];
     if (!allAnalyses.includes(current)) allAnalyses.push(current);
     const receiver = receiverInfo(current, memberAccess[1], offset, allAnalyses);
-    if (!receiver) return [];
     const statementEnd = text.indexOf(';', offset);
     const remainder = text.slice(offset, statementEnd === -1 ? text.length : statementEnd);
     const collectionAssignment = remainder.includes(':>');
@@ -485,14 +503,14 @@ export function memberCompletionCandidates(
     const statementStart = text.lastIndexOf(';', memberStart) + 1;
     const assignmentBefore = /:>|:=/.test(text.slice(statementStart, memberStart));
     const assignmentAfter = /:>|:=/.test(remainder);
-    const expectedDirection = (!assignmentBefore && !assignmentAfter) || receiver.role === 'local'
+    const expectedDirection = !receiver || (!assignmentBefore && !assignmentAfter) || receiver.role === 'local'
         ? undefined
         : assignmentAfter === (receiver.role === 'root') ? 'synthesized' : 'inherited';
     const seen = new Set<string>();
     const candidates: CompletionCandidate[] = [];
     for (const analysis of allAnalyses) {
         for (const attribute of analysis.attributes) {
-            if (attribute.receiverType !== receiver.type || (collectionAssignment && !attribute.collection) ||
+            if ((receiver && attribute.receiverType !== receiver.type) || (collectionAssignment && !attribute.collection) ||
                 (expectedDirection && attribute.direction && attribute.direction !== expectedDirection) || seen.has(attribute.name)) continue;
             seen.add(attribute.name);
             candidates.push({ name: attribute.name, kind: 'attribute', detail: attribute.detail });

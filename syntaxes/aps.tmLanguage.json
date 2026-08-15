@@ -15,10 +15,16 @@
 			"include": "#declarations"
 		},
 		{
+			"include": "#bindings"
+		},
+		{
 			"include": "#keywords"
 		},
 		{
 			"include": "#operators"
+		},
+		{
+			"include": "#punctuation"
 		}
 	],
 	"repository": {
@@ -33,11 +39,43 @@
 		"declarations": {
 			"patterns": [
 				{
-					"name": "meta.declaration.aps",
-					"match": "\\b(module|class|signature|type|phylum|constructor|pattern|function|procedure)\\s+([A-Za-z][A-Za-z0-9_]*)",
+					"name": "meta.declaration.module.aps",
+					"match": "\\b(module)\\s+([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.aps" },
+						"2": { "name": "entity.name.namespace.aps" }
+					}
+				},
+				{
+					"name": "meta.declaration.class.aps",
+					"match": "\\b(class)\\s+([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.aps" },
+						"2": { "name": "entity.name.type.class.aps" }
+					}
+				},
+				{
+					"name": "meta.declaration.signature.aps",
+					"match": "\\b(signature)\\s+([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.aps" },
+						"2": { "name": "entity.name.type.interface.aps" }
+					}
+				},
+				{
+					"name": "meta.declaration.type.aps",
+					"match": "\\b(type|phylum)\\s+([A-Za-z][A-Za-z0-9_]*)",
 					"captures": {
 						"1": { "name": "storage.type.aps" },
 						"2": { "name": "entity.name.type.aps" }
+					}
+				},
+				{
+					"name": "meta.declaration.callable.aps",
+					"match": "\\b(constructor|pattern|function|procedure)\\s+(\\{\\.\\}|[A-Za-z][A-Za-z0-9_]*|\\([^\\r\\n)]*\\))",
+					"captures": {
+						"1": { "name": "storage.type.function.aps" },
+						"2": { "name": "entity.name.function.aps" }
 					}
 				},
 				{
@@ -59,11 +97,45 @@
 				}
 			]
 		},
+		"bindings": {
+			"patterns": [
+				{
+					"name": "meta.binding.pattern.aps",
+					"match": "(\\?)\\s*([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "punctuation.definition.variable.aps" },
+						"2": { "name": "variable.parameter.aps" }
+					}
+				},
+				{
+					"name": "variable.other.definition.aps",
+					"match": "\\b[A-Za-z][A-Za-z0-9_]*\\b(?=\\s*:)(?!\\s*::)"
+				},
+				{
+					"name": "constant.language.aps",
+					"match": "\\b(true|false)\\b"
+				}
+			]
+		},
 		"keywords": {
-			"patterns": [{
-				"name": "keyword.control.aps",
-				"match": "\\b(and|attribute|begin|case|circular|class|collection|constant|constructor|elscase|else|elsif|end|endif|extends|for|function|if|in|infix|infixl|infixr|inherit|input|match|module|not|on|or|pattern|phylum|pragma|private|procedure|public|remote|signature|then|type|var|with)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "storage.modifier.aps",
+					"match": "\\b(circular|collection|constant|input|private|public|remote|var)\\b"
+				},
+				{
+					"name": "storage.type.aps",
+					"match": "\\b(attribute|class|constructor|function|module|pattern|phylum|procedure|signature|type)\\b"
+				},
+				{
+					"name": "keyword.control.aps",
+					"match": "\\b(begin|case|elscase|else|elsif|end|endif|for|if|match|then)\\b"
+				},
+				{
+					"name": "keyword.other.aps",
+					"match": "\\b(extends|inherit|infix|infixl|infixr|on|pragma|with)\\b"
+				}
+			]
 		},
 		"strings": {
 			"patterns": [
@@ -96,6 +168,15 @@
 				{ "name": "keyword.operator.word.aps", "match": "\\b(and|in|not|or|remote)\\b" },
 				{ "name": "keyword.operator.quoted.aps", "match": "`[A-Za-z_][A-Za-z0-9_]*`" },
 				{ "name": "keyword.operator.aps", "match": ":::+|\\.\\.\\.|::|:=|:>|:\\?|->|\\.\\.|[~@#$%^&*+=<>/\\\\|:-]+" }
+			]
+		},
+		"punctuation": {
+			"patterns": [
+				{ "name": "punctuation.section.parens.aps", "match": "[()]" },
+				{ "name": "punctuation.section.brackets.aps", "match": "[\\[\\]]" },
+				{ "name": "punctuation.section.braces.aps", "match": "[{}]" },
+				{ "name": "punctuation.separator.aps", "match": "[;,]" },
+				{ "name": "punctuation.accessor.aps", "match": "[.$]" }
 			]
 		}
 	},

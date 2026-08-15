@@ -103,6 +103,39 @@ assert.deepStrictEqual(memberNamesAt('rhs.'), ['inherited_value', 'items', 'outp
 assert.deepStrictEqual(memberNamesAt('child.'), ['inherited_value', 'items', 'output'],
 	'nested pattern bindings should infer grouped constructor parameter types');
 
+const outerReceiverFixture = memberFixture.replace(
+	'match ?lhs:Node=node() begin',
+	'LHS : Node;\nmatch node() begin\n    LHS.;\nend;\nmatch ?lhs:Node=node() begin'
+);
+const outerReceiverAnalysis = analyze(outerReceiverFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	outerReceiverFixture,
+	outerReceiverFixture.indexOf('LHS.') + 'LHS.'.length,
+	outerReceiverAnalysis,
+	[outerReceiverAnalysis]
+)?.map(candidate => candidate.name), ['inherited_value', 'items', 'output'],
+	'top-level typed receivers should offer attributes inside a match');
+
+const topLevelReceiverFixture = 'LHS : Node;\nLHS.;';
+const topLevelReceiverAnalysis = analyze(topLevelReceiverFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	topLevelReceiverFixture,
+	topLevelReceiverFixture.lastIndexOf('LHS.') + 'LHS.'.length,
+	topLevelReceiverAnalysis,
+	[memberAnalysis, topLevelReceiverAnalysis]
+)?.map(candidate => candidate.name), ['inherited_value', 'items', 'output'],
+	'typed receivers should offer attributes outside a match');
+
+const unresolvedReceiverFixture = 'unknown.';
+const unresolvedReceiverAnalysis = analyze(unresolvedReceiverFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	unresolvedReceiverFixture,
+	unresolvedReceiverFixture.length,
+	unresolvedReceiverAnalysis,
+	[memberAnalysis, unresolvedReceiverAnalysis]
+)?.map(candidate => candidate.name), ['inherited_value', 'items', 'output'],
+	'unresolved receivers should fall back to known attributes after a dot');
+
 const collectionFixture = memberFixture.replace('lhs.;', 'lhs. :> value;');
 const collectionAnalysis = analyze(collectionFixture);
 assert.deepStrictEqual(memberCompletionCandidates(
