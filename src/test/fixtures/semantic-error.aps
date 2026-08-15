@@ -1,0 +1,3 @@
+module SEMANTIC_BAD[] begin
+  type Alias := MissingType;
+end;

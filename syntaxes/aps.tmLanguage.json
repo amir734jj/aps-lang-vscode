@@ -3,30 +3,100 @@
 	"name": "aps",
 	"patterns": [
 		{
-			"include": "#keywords"
+			"include": "#comments"
 		},
 		{
 			"include": "#strings"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#declarations"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#operators"
 		}
 	],
 	"repository": {
+		"comments": {
+			"name": "comment.line.double-dash.aps",
+			"begin": "--",
+			"beginCaptures": {
+				"0": { "name": "punctuation.definition.comment.aps" }
+			},
+			"end": "$"
+		},
+		"declarations": {
+			"patterns": [
+				{
+					"name": "meta.declaration.aps",
+					"match": "\\b(module|class|signature|type|phylum|constructor|pattern|function|procedure)\\s+([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.aps" },
+						"2": { "name": "entity.name.type.aps" }
+					}
+				},
+				{
+					"name": "meta.attribute.aps",
+					"match": "\\b(attribute)\\s+(?:([A-Za-z][A-Za-z0-9_]*)\\s*\\.\\s*)?([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.aps" },
+						"2": { "name": "entity.name.type.aps" },
+						"3": { "name": "entity.name.variable.field.aps" }
+					}
+				},
+				{
+					"name": "meta.pragma.aps",
+					"match": "\\b(pragma)\\s+([A-Za-z][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.aps" },
+						"2": { "name": "entity.name.function.aps" }
+					}
+			]
+		},
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control.aps",
-				"match": "(if|endif|else|elsif|while|for|return|type|type|module|extends|begin|end|result|attribute|pragma|phylum|case|match|private|procedure|remote|circular|class|collection|constructor|extends)"
+				"match": "\\b(and|attribute|begin|case|circular|class|collection|constant|constructor|elscase|else|elsif|end|endif|extends|for|function|if|in|infix|infixl|infixr|inherit|input|match|module|not|on|or|pattern|phylum|pragma|private|procedure|public|remote|signature|then|type|var|with)\\b"
 			}]
 		},
 		"strings": {
-			"name": "string.quoted.double.aps",
-			"begin": "\"",
-			"end": "\"",
 			"patterns": [
 				{
-					"name": "constant.character.escape.aps",
-					"match": "\\\\."
+					"name": "string.quoted.double.aps",
+					"begin": "\"",
+					"beginCaptures": { "0": { "name": "punctuation.definition.string.begin.aps" } },
+					"end": "\"",
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.aps" } },
+					"patterns": [{ "name": "constant.character.escape.aps", "match": "\\\\(?:.|$)" }]
+				},
+				{
+					"name": "string.quoted.single.aps",
+					"begin": "'",
+					"beginCaptures": { "0": { "name": "punctuation.definition.string.begin.aps" } },
+					"end": "'",
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.aps" } },
+					"patterns": [{ "name": "constant.character.escape.aps", "match": "\\\\(?:.|$)" }]
 				}
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{ "name": "constant.numeric.float.aps", "match": "\\b[0-9][A-Za-z0-9_]*\\.[0-9][A-Za-z0-9_]*\\b" },
+				{ "name": "constant.numeric.integer.aps", "match": "\\b[0-9][A-Za-z0-9_]*\\b" }
+			]
+		},
+		"operators": {
+			"patterns": [
+				{ "name": "keyword.operator.word.aps", "match": "\\b(and|in|not|or|remote)\\b" },
+				{ "name": "keyword.operator.quoted.aps", "match": "`[A-Za-z_][A-Za-z0-9_]*`" },
+				{ "name": "keyword.operator.aps", "match": ":::+|\\.\\.\\.|::|:=|:>|:\\?|->|\\.\\.|[~@#$%^&*+=<>/\\\\|:-]+" }
 			]
 		}
 	},
-	"scopeName": "aps"
+	"scopeName": "source.aps"
 }

@@ -1,0 +1,3 @@
+module SYNTAX_BAD[] begin
+  phylum Node
+end;

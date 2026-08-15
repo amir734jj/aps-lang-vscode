@@ -1,13 +1,14 @@
 {
     "name": "aps-lang",
-    "displayName": "aps-lang",
-    "description": "APS language support",
+    "displayName": "APS Language IDE",
+    "description": "IDE support for the APS attribute grammar language",
     "publisher": "hesamian",
-    "version": "0.0.4",
+    "version": "0.1.0",
     "repository": "https://github.com/amir734jj/aps-lang-vscode",
     "engines": {
-        "vscode": "^1.38.0"
+        "vscode": "^1.85.0"
     },
+    "main": "./dist/extension.js",
     "categories": [
         "Programming Languages"
     ],
@@ -15,21 +16,55 @@
         "languages": [
             {
                 "id": "aps",
-                "aliases": [
-                    "aps"
-                ],
-                "extensions": [
-                    ".aps"
-                ],
+                "aliases": ["APS", "aps"],
+                "extensions": [".aps"],
                 "configuration": "./language-configuration.json"
             }
         ],
         "grammars": [
             {
                 "language": "aps",
-                "scopeName": "",
+                "scopeName": "source.aps",
                 "path": "./syntaxes/aps.tmLanguage.json"
             }
+        ],
+        "commands": [
+            {
+                "command": "aps.validateFile",
+                "title": "APS: Validate Current File"
+            },
+            {
+                "command": "aps.reindexWorkspace",
+                "title": "APS: Reindex Workspace"
+            }
         ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run build",
+        "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true});require('fs').rmSync('dist',{recursive:true,force:true})\"",
+        "generate": "node -e \"require('fs').rmSync('src/generated',{recursive:true,force:true})\" && antlr-ng -Dlanguage=TypeScript -o src/generated grammar/ApsLexer.g4 grammar/ApsParser.g4 && node -e \"require('fs').copyFileSync('src/generated/ApsLexer.tokens','grammar/ApsLexer.tokens')\"",
+        "compile": "npm run clean && npm run generate && tsc -p ./",
+        "build": "npm run compile && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
+        "watch": "npm run generate && tsc -watch -p ./",
+        "lint": "eslint src/**/*.ts",
+        "test": "npm run compile && node ./out/test/grammarProvenance.test.js && node ./out/test/languageService.test.js",
+        "test:corpus": "node ./out/test/apsCorpus.test.js",
+        "test:integration": "npm run compile && npm run test:corpus",
+        "check": "npm run lint && npm test",
+        "package": "vsce package --skip-license"
+    },
+    "dependencies": {
+        "antlr4ng": "^3.0.16"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.0.0",
+        "@types/node": "^20.17.0",
+        "@types/vscode": "^1.85.0",
+        "@vscode/vsce": "^3.6.0",
+        "antlr-ng": "^1.0.10",
+        "esbuild": "^0.25.0",
+        "eslint": "^9.0.0",
+        "typescript-eslint": "^8.0.0",
+        "typescript": "^5.7.0"
     }
 }
