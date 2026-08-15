@@ -4,13 +4,15 @@ on:
   push:
     branches:
       - '**'
-    tags:
-      - 'v*'
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-vsix-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -62,11 +64,8 @@ jobs:
             printf 'Expected only %s, found: %s\n' "$expected" "${packages[*]:-none}" >&2
             exit 1
           fi
-          echo "VSIX_PATH=$expected" >> "$GITHUB_ENV"
-
-      - name: Verify release version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: node -e "const expected = 'v' + require('./package.json').version; if (process.env.GITHUB_REF_NAME !== expected) throw new Error('Tag ' + process.env.GITHUB_REF_NAME + ' does not match package version ' + expected)"
+          mv "$expected" aps-lang-latest.vsix
+          echo "VSIX_PATH=aps-lang-latest.vsix" >> "$GITHUB_ENV"
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
@@ -77,8 +76,22 @@ jobs:
           retention-days: 14
           compression-level: 0
 
-      - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish latest GitHub release
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "$VSIX_PATH" --verify-tag --generate-notes --title "APS Language IDE $GITHUB_REF_NAME"
+        shell: bash
+        run: |
+          git tag --force latest "$GITHUB_SHA"
+          git push origin refs/tags/latest --force
+
+          if gh release view latest >/dev/null 2>&1; then
+            gh release edit latest --target "$GITHUB_SHA" --title "latest" --notes "Latest successful build from the master branch."
+            gh release upload latest "$VSIX_PATH" --clobber
+          else
+            gh release create latest "$VSIX_PATH" --verify-tag --target "$GITHUB_SHA" --title "latest" --notes "Latest successful build from the master branch."
+          fi
+
+          while read -r release; do
+            [[ -z "$release" ]] || gh release delete "$release" --yes
+          done < <(gh release list --limit 100 --json tagName --jq '.[] | select(.tagName != "latest") | .tagName')

@@ -13,6 +13,8 @@ All notable changes to the "aps-lang" extension will be documented in this file.
 	inherited/synthesized direction when the statement context is unambiguous.
 - Expanded syntax highlighting for declaration kinds, bindings, modifiers, control
 	flow, constants, and punctuation.
+- Changed CI publishing to maintain one rolling `latest` GitHub release and stable
+	`aps-lang-latest.vsix` asset without version tags.
 
 ## [0.1.1]
 
