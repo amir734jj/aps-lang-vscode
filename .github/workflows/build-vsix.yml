@@ -40,9 +40,14 @@ jobs:
       - name: Run checks
         run: npm run check
 
-      - name: Test lexer and parser against upstream APS examples
+      - name: Test language service against upstream APS examples
         env:
-          APS_EXAMPLES: ${{ github.workspace }}/aps-upstream/examples
+          APS_CORPUS: ${{ github.workspace }}/aps-upstream/examples
+        run: npm run test:corpus
+
+      - name: Test language service against upstream APS base
+        env:
+          APS_CORPUS: ${{ github.workspace }}/aps-upstream/base
         run: npm run test:corpus
 
       - name: Package extension

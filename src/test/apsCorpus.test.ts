@@ -11,25 +11,25 @@ function findApsFiles(directory: string): string[] {
     });
 }
 
-const configuredExamples = process.env.APS_EXAMPLES;
-assert.ok(configuredExamples, 'APS_EXAMPLES must point to the examples directory from a cloned APS repository');
-const examplesDirectory = path.resolve(configuredExamples);
-assert.ok(fs.existsSync(examplesDirectory), `APS examples directory not found: ${examplesDirectory}`);
-const files = findApsFiles(examplesDirectory).sort();
-assert.ok(files.length > 0, `No APS examples found in ${examplesDirectory}`);
+const configuredCorpus = process.env.APS_CORPUS;
+assert.ok(configuredCorpus, 'APS_CORPUS must point to a directory from a cloned APS repository');
+const corpusDirectory = path.resolve(configuredCorpus);
+assert.ok(fs.existsSync(corpusDirectory), `APS corpus directory not found: ${corpusDirectory}`);
+const files = findApsFiles(corpusDirectory).sort();
+assert.ok(files.length > 0, `No APS files found in ${corpusDirectory}`);
 const analyses = [];
-const syntaxFailures: string[] = [];
+const diagnosticFailures: string[] = [];
 
 for (const fullPath of files) {
     const analysis = analyze(fs.readFileSync(fullPath, 'utf8'));
     analyses.push(analysis);
     if (analysis.diagnostics.length > 0) {
         const first = analysis.diagnostics[0];
-        syntaxFailures.push(`${path.basename(fullPath)}@${first.start}: ${first.message}`);
+        diagnosticFailures.push(`${path.basename(fullPath)}@${first.start}: ${first.message}`);
     }
 }
 
-assert.deepStrictEqual(syntaxFailures, [], 'Every upstream APS example must parse without syntax diagnostics');
+assert.deepStrictEqual(diagnosticFailures, [], 'Every upstream APS file must pass syntax and semantic diagnostics');
 const completions = completionCandidates(analyses);
 const completionKeys = new Set(completions.map(candidate => `${candidate.kind}:${candidate.name}`));
 const missingCompletions = [...new Set(analyses.flatMap(analysis => analysis.symbols)
@@ -37,4 +37,4 @@ const missingCompletions = [...new Set(analyses.flatMap(analysis => analysis.sym
     .map(symbol => `${symbol.kind}:${symbol.name}`))];
 assert.deepStrictEqual(missingCompletions, [], 'Every indexed APS declaration must be offered as a completion');
 
-console.log(`Upstream APS corpus: ${files.length} files parsed in-process, ${completions.length} completion candidates, all checks passed.`);
+console.log(`Upstream APS corpus: ${files.length} files analyzed in-process, ${completions.length} completion candidates, all checks passed.`);

@@ -57,6 +57,11 @@ const duplicateParse = parse('module DUP[] begin type Item; phylum Item; end;');
 assert.ok(semanticDiagnostics(duplicateParse.tree)
 	.some(diagnostic => diagnostic.message === "Duplicate type declaration 'Item'"));
 
+const siblingPolymorphicScopes = parse('[T] begin type Local := T; end; [T] begin type Local := T; end;');
+assert.deepStrictEqual(siblingPolymorphicScopes.diagnostics, []);
+assert.deepStrictEqual(semanticDiagnostics(siblingPolymorphicScopes.tree, { reportUnresolved: true }), [],
+	'sibling polymorphic declarations may reuse type formal and local type names');
+
 const completions = completionCandidates([result]);
 assert.ok(completions.some(candidate => candidate.kind === 'keyword' && candidate.name === 'module'));
 assert.ok(completions.some(candidate => candidate.kind === 'function' && candidate.name === 'lookup'));

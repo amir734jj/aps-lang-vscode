@@ -3,6 +3,7 @@ import {
     ClassDeclarationContext,
     ModuleDeclarationContext,
     PhylumDeclarationContext,
+    PolymorphicDeclarationContext,
     ProgramContext,
     TypeDeclarationContext,
     TypeFormalGroupContext,
@@ -54,11 +55,14 @@ export function semanticDiagnostics(tree: ProgramContext, options: SemanticOptio
             current.types.set(name, nameContext);
         }
     };
-    const enterContainer = (context: ModuleDeclarationContext | ClassDeclarationContext): void => {
-        declare(declarationName(context));
+    const enterScope = (context: ParserRuleContext): void => {
         const child: Scope = { parent: current, types: new Map() };
         nestedScopes.set(context, child);
         current = child;
+    };
+    const enterContainer = (context: ModuleDeclarationContext | ClassDeclarationContext): void => {
+        declare(declarationName(context));
+        enterScope(context);
     };
     const exitContainer = (): void => {
         current = current.parent ?? root;
@@ -69,6 +73,8 @@ export function semanticDiagnostics(tree: ProgramContext, options: SemanticOptio
     declarationListener.exitModuleDeclaration = exitContainer;
     declarationListener.enterClassDeclaration = enterContainer;
     declarationListener.exitClassDeclaration = exitContainer;
+    declarationListener.enterPolymorphicDeclaration = (context: PolymorphicDeclarationContext) => enterScope(context);
+    declarationListener.exitPolymorphicDeclaration = exitContainer;
     declarationListener.enterTypeDeclaration = (context: TypeDeclarationContext) => declare(context.id());
     declarationListener.enterPhylumDeclaration = (context: PhylumDeclarationContext) => declare(context.id());
     declarationListener.enterTypeFormalGroup = (context: TypeFormalGroupContext) => {
@@ -93,6 +99,8 @@ export function semanticDiagnostics(tree: ProgramContext, options: SemanticOptio
     referenceListener.exitModuleDeclaration = exitContainer;
     referenceListener.enterClassDeclaration = context => { current = nestedScopes.get(context) ?? current; };
     referenceListener.exitClassDeclaration = exitContainer;
+    referenceListener.enterPolymorphicDeclaration = context => { current = nestedScopes.get(context) ?? current; };
+    referenceListener.exitPolymorphicDeclaration = exitContainer;
     referenceListener.enterTypeReference = (context: TypeReferenceContext) => {
         const qualified = context.simpleType()?.qualifiedUse();
         const nameContext = qualified?.id(0);
