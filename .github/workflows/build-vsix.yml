@@ -53,6 +53,17 @@ jobs:
       - name: Package extension
         run: npm run package
 
+      - name: Verify single VSIX
+        shell: bash
+        run: |
+          expected="aps-lang-$(node -p 'require("./package.json").version').vsix"
+          mapfile -t packages < <(find . -maxdepth 1 -type f -name '*.vsix' -printf '%f\n')
+          if [[ ${#packages[@]} -ne 1 || "${packages[0]}" != "$expected" ]]; then
+            printf 'Expected only %s, found: %s\n' "$expected" "${packages[*]:-none}" >&2
+            exit 1
+          fi
+          echo "VSIX_PATH=$expected" >> "$GITHUB_ENV"
+
       - name: Verify release version
         if: startsWith(github.ref, 'refs/tags/v')
         run: node -e "const expected = 'v' + require('./package.json').version; if (process.env.GITHUB_REF_NAME !== expected) throw new Error('Tag ' + process.env.GITHUB_REF_NAME + ' does not match package version ' + expected)"
@@ -61,12 +72,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aps-lang-vsix
-          path: '*.vsix'
+          path: ${{ env.VSIX_PATH }}
           if-no-files-found: error
           retention-days: 14
+          compression-level: 0
 
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" ./*.vsix --verify-tag --generate-notes --title "APS Language IDE $GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" "$VSIX_PATH" --verify-tag --generate-notes --title "APS Language IDE $GITHUB_REF_NAME"

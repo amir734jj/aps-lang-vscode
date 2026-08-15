@@ -51,9 +51,9 @@ The full example corpus is intentionally not copied into this repository.
 
 The GitHub Actions build runs the same checks, clones `amir734jj/aps`, analyzes every
 `.aps` file under its `examples/` and `base/` directories, packages the extension, and
-uploads the VSIX as a workflow artifact. A `v*` tag matching the version in
-`package.json` also publishes the VSIX as a public GitHub Release asset. To run either
-external corpus check locally after compiling:
+uploads exactly one versioned VSIX in the workflow artifact. A `v*` tag matching the
+version in `package.json` also publishes that single VSIX as the only uploaded GitHub
+Release asset. To run either external corpus check locally after compiling:
 
 ```console
 APS_CORPUS=/path/to/aps/examples npm run test:corpus

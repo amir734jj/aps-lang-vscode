@@ -51,7 +51,7 @@
         "test:corpus": "node ./out/test/apsCorpus.test.js",
         "test:integration": "npm run compile && npm run test:corpus",
         "check": "npm run lint && npm test",
-        "package": "vsce package --skip-license"
+        "package": "node -e \"const fs=require('fs');for(const file of fs.readdirSync('.').filter(file=>file.endsWith('.vsix')))fs.rmSync(file)\" && vsce package --skip-license"
     },
     "dependencies": {
         "antlr4ng": "^3.0.16"
