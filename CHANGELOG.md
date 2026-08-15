@@ -14,6 +14,7 @@ All notable changes to the "aps-lang" extension will be documented in this file.
 - Added linting and self-contained parser/binder unit tests.
 - Added a GitHub Actions build that uploads the packaged VSIX as an artifact.
 - Added CI validation of the generated lexer/parser against every upstream APS example.
+- Added tag-triggered GitHub Releases with the VSIX attached as a public download.
 - Removed all runtime APS binary and WSL dependencies.
 
 ## [0.0.1]
