@@ -2,6 +2,13 @@
 
 All notable changes to the "aps-lang" extension will be documented in this file.
 
+## [0.1.1]
+
+- Restored syntax highlighting by fixing the packaged TextMate grammar JSON.
+- Added validation for the manifest's APS grammar contribution and highlighting asset.
+- Fixed false duplicate declarations between sibling polymorphic scopes.
+- Added CI semantic validation against the upstream APS `base/` sources.
+
 ## [0.1.0]
 
 - Added workspace completion, hover, definitions, references, and symbols.

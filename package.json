@@ -3,7 +3,7 @@
     "displayName": "APS Language IDE",
     "description": "IDE support for the APS attribute grammar language",
     "publisher": "hesamian",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "repository": "https://github.com/amir734jj/aps-lang-vscode",
     "engines": {
         "vscode": "^1.85.0"
@@ -47,7 +47,7 @@
         "build": "npm run compile && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
         "watch": "npm run generate && tsc -watch -p ./",
         "lint": "eslint src/**/*.ts",
-        "test": "npm run compile && node ./out/test/grammarProvenance.test.js && node ./out/test/languageService.test.js",
+        "test": "npm run compile && node ./out/test/extensionAssets.test.js && node ./out/test/grammarProvenance.test.js && node ./out/test/languageService.test.js",
         "test:corpus": "node ./out/test/apsCorpus.test.js",
         "test:integration": "npm run compile && npm run test:corpus",
         "check": "npm run lint && npm test",
