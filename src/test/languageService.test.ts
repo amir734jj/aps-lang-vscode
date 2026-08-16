@@ -136,6 +136,94 @@ assert.deepStrictEqual(memberCompletionCandidates(
 )?.map(candidate => candidate.name), ['inherited_value', 'items', 'output'],
 	'unresolved receivers should fall back to known attributes after a dot');
 
+const incompleteMemberFixture = `
+phylum Items;
+constructor append(items1,items2 : Result) : Result;
+attribute Items.items_nullable : Boolean;
+match ?self:Items=Items$append(?items1,?items2 : Items) begin
+	self.items_nullable := items1. and items2.items_nullable;
+end;
+`;
+const incompleteMemberAnalysis = analyze(incompleteMemberFixture);
+const incompleteMemberOffset = incompleteMemberFixture.indexOf('items1.') + 'items1.'.length;
+assert.deepStrictEqual(incompleteMemberAnalysis.diagnostics, [],
+	'an incomplete member access should not show a syntax error while completion is active');
+assert.deepStrictEqual(memberCompletionCandidates(
+	incompleteMemberFixture,
+	incompleteMemberOffset,
+	incompleteMemberAnalysis,
+	[incompleteMemberAnalysis]
+)?.map(candidate => candidate.name), ['items_nullable'],
+	'a qualified generic constructor binding should offer attributes after a trailing dot');
+
+for (const source of [
+	'value = receiver.;',
+	'value = call(receiver., other);',
+	'value = {receiver.};',
+	'value = receiver. and other;',
+	'value = receiver. + other;',
+	'value = receiver. if condition;',
+	'value = receiver. for item in items;',
+	'value = receiver.\n    ;',
+	'value = receiver. -- choose an attribute\n    ;'
+]) {
+	assert.deepStrictEqual(parse(source).diagnostics, [],
+		`incomplete member access should be tolerated while editing: ${JSON.stringify(source)}`);
+}
+assert.ok(parse('value = receiver.').diagnostics
+	.some(diagnostic => diagnostic.message.includes("missing ';'")),
+	'a trailing dot must not suppress an independently missing declaration semicolon');
+for (const source of [
+	'value = receiver..;',
+	'value = receiver.$field;',
+	'value = receiver. end;'
+]) {
+	assert.ok(parse(source).diagnostics.length > 0,
+		`invalid member syntax must still report a diagnostic: ${JSON.stringify(source)}`);
+}
+assert.deepStrictEqual(parse('value = receiver.member;').diagnostics, [],
+	'a completed member access must remain valid');
+
+const qualifiedCollisionFixture = `
+phylum Items;
+phylum Expression;
+phylum Wrapper;
+constructor append(left,right : Result) : Result;
+constructor append(left,right : Expression) : Expression;
+constructor wrap(item : Items) : Wrapper;
+attribute Items.item_attribute : Boolean;
+attribute Expression.expression_attribute : Boolean;
+match ?self=Items$append(?left,?right) begin
+	self.;
+	left.;
+end;
+match ?wrapper=wrap(Items$append(?nestedLeft,?nestedRight)) begin
+	nestedLeft.;
+end;
+`;
+const qualifiedCollisionAnalysis = analyze(qualifiedCollisionFixture);
+const qualifiedNamesAt = (marker: string) => memberCompletionCandidates(
+	qualifiedCollisionFixture,
+	qualifiedCollisionFixture.indexOf(marker) + marker.length,
+	qualifiedCollisionAnalysis,
+	[qualifiedCollisionAnalysis]
+)?.map(candidate => candidate.name);
+assert.deepStrictEqual(qualifiedNamesAt('self.'), ['item_attribute'],
+	'a qualified constructor should infer its result type from the qualifier');
+assert.deepStrictEqual(qualifiedNamesAt('left.'), ['item_attribute'],
+	'a qualified generic constructor should instantiate Result parameters from its qualifier');
+assert.deepStrictEqual(qualifiedNamesAt('nestedLeft.'), ['item_attribute'],
+	'nested qualified constructor arguments should retain their instantiated type');
+const collisionFallbackFixture = 'unknown.';
+const collisionFallbackAnalysis = analyze(collisionFallbackFixture);
+assert.deepStrictEqual(memberCompletionCandidates(
+	collisionFallbackFixture,
+	collisionFallbackFixture.length,
+	collisionFallbackAnalysis,
+	[qualifiedCollisionAnalysis, qualifiedCollisionAnalysis, collisionFallbackAnalysis]
+)?.map(candidate => candidate.name), ['expression_attribute', 'item_attribute'],
+	'unknown receivers should offer deduplicated attributes from every known receiver type');
+
 const collectionFixture = memberFixture.replace('lhs.;', 'lhs. :> value;');
 const collectionAnalysis = analyze(collectionFixture);
 assert.deepStrictEqual(memberCompletionCandidates(

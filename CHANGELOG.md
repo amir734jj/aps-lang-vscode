@@ -15,6 +15,10 @@ All notable changes to the "aps-lang" extension will be documented in this file.
 	flow, constants, and punctuation.
 - Changed CI publishing to maintain one rolling `latest` GitHub release and stable
 	`aps-lang-latest.vsix` asset without version tags.
+- Allowed one trailing dot as an incomplete member access while attribute completion
+	is active, including inside calls and before expression boundaries.
+- Resolved qualified generic constructors such as `Items$append` without cross-module
+	name collisions, so nested pattern bindings receive the correct attribute type.
 
 ## [0.1.1]
 

@@ -378,12 +378,47 @@ function enclosingMatch(tokens: Token[], offset: number): MatchScope | undefined
     return [...blocks].reverse().find((scope): scope is MatchScope => scope !== undefined);
 }
 
-function constructorSignatures(analyses: Iterable<Analysis>): Map<string, ConstructorInfo> {
-    const results = new Map<string, ConstructorInfo>();
+function constructorSignatures(analyses: Iterable<Analysis>): Map<string, ConstructorInfo[]> {
+    const results = new Map<string, ConstructorInfo[]>();
     for (const analysis of analyses) {
-        for (const constructor of analysis.constructors) results.set(constructor.name, constructor);
+        for (const constructor of analysis.constructors) {
+            const signatures = results.get(constructor.name) ?? [];
+            signatures.push(constructor);
+            results.set(constructor.name, signatures);
+        }
     }
     return results;
+}
+
+interface ConstructorUse {
+    signature: ConstructorInfo;
+    openParen: number;
+    qualifier?: string;
+}
+
+function constructorUseAt(
+    tokens: Token[],
+    start: number,
+    constructors: Map<string, ConstructorInfo[]>
+): ConstructorUse | undefined {
+    let nameToken = start;
+    let qualifier: string | undefined;
+    if (tokens[start]?.kind === 'identifier' && tokens[start + 1]?.text === '$' && tokens[start + 2]?.kind === 'identifier') {
+        qualifier = tokens[start].text;
+        nameToken = start + 2;
+    }
+    if (tokens[nameToken]?.kind !== 'identifier' || tokens[nameToken + 1]?.text !== '(') return undefined;
+    const signatures = constructors.get(tokens[nameToken].text);
+    if (!signatures?.length) return undefined;
+    const signature = qualifier
+        ? signatures.find(candidate => candidate.resultType === qualifier) ??
+            signatures.find(candidate => candidate.resultType === 'Result') ?? signatures[signatures.length - 1]
+        : signatures[signatures.length - 1];
+    return { signature, openParen: nameToken + 1, qualifier };
+}
+
+function instantiateConstructorType(type: string, qualifier?: string): string {
+    return qualifier && type === 'Result' ? qualifier : type;
 }
 
 function matchingParen(tokens: Token[], open: number, limit: number): number | undefined {
@@ -399,21 +434,21 @@ function bindConstructorArguments(
     tokens: Token[],
     start: number,
     limit: number,
-    constructors: Map<string, ConstructorInfo>,
+    constructors: Map<string, ConstructorInfo[]>,
     bindings: Map<string, ReceiverInfo>
 ): void {
     for (let index = start; index < limit; index++) {
-        const signature = constructors.get(tokens[index].text);
-        if (!signature || tokens[index + 1]?.text !== '(') continue;
-        const close = matchingParen(tokens, index + 1, limit);
+        const use = constructorUseAt(tokens, index, constructors);
+        if (!use) continue;
+        const close = matchingParen(tokens, use.openParen, limit);
         if (close === undefined) continue;
-        let argumentStart = index + 2;
+        let argumentStart = use.openParen + 1;
         let argumentIndex = 0;
         let depth = 0;
         for (let cursor = argumentStart; cursor <= close; cursor++) {
             const separator = cursor === close || (depth === 0 && [',', ';'].includes(tokens[cursor].text));
             if (separator) {
-                const expectedType = signature.parameterTypes[argumentIndex];
+                const expectedType = instantiateConstructorType(use.signature.parameterTypes[argumentIndex], use.qualifier);
                 if (expectedType && tokens[argumentStart]?.text === '?' && tokens[argumentStart + 1]?.kind === 'identifier') {
                     bindings.set(tokens[argumentStart + 1].text, { type: expectedType, role: 'child' });
                 }
@@ -442,9 +477,14 @@ function matchBindings(analysis: Analysis, scope: MatchScope, analyses: Iterable
         firstBinding = false;
         if (tokens[index + 2]?.text === ':' && tokens[index + 3]?.kind === 'identifier') {
             bindings.set(name, { type: tokens[index + 3].text, role });
-        } else if (tokens[index + 2]?.text === '=' && tokens[index + 3]?.kind === 'identifier') {
-            const signature = constructors.get(tokens[index + 3].text);
-            if (signature) bindings.set(name, { type: signature.resultType, role });
+        } else if (tokens[index + 2]?.text === '=') {
+            const use = constructorUseAt(tokens, index + 3, constructors);
+            if (use) {
+                bindings.set(name, {
+                    type: use.qualifier ?? instantiateConstructorType(use.signature.resultType, use.qualifier),
+                    role
+                });
+            }
         }
     }
     bindConstructorArguments(tokens, scope.matchToken + 1, scope.beginToken, constructors, bindings);

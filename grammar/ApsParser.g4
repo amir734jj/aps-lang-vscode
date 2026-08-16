@@ -204,7 +204,7 @@ expression
       (FOR id typeAnnotation? IN expression)?
     ;
 unaryExpression: (NOT | MINUS | EQUAL | operator)* simpleExpression;
-simpleExpression: atomicExpression (actuals | DOT atomicExpression)*;
+simpleExpression: atomicExpression (actuals | DOT atomicExpression)* DOT?;
 atomicExpression
     : qualifiedUse
     | INTEGER
